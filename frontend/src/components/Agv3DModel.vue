@@ -161,6 +161,52 @@ const stopDrag = () => {
 
 // ==================== WebRTC 相关函数 ====================
 
+const waitForIceGatheringComplete = (peerConnection, timeoutMs = 5000) =>
+  new Promise((resolve) => {
+    if (peerConnection.iceGatheringState === 'complete') {
+      resolve();
+      return;
+    }
+
+    let settled = false;
+    const handleStateChange = () => {
+      console.log(
+        '[WebRTC] ICE 收集状态:',
+        peerConnection.iceGatheringState
+      );
+      if (settled || peerConnection.iceGatheringState !== 'complete') {
+        return;
+      }
+
+      settled = true;
+      window.clearTimeout(timeoutId);
+      peerConnection.removeEventListener(
+        'icegatheringstatechange',
+        handleStateChange
+      );
+      resolve();
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      peerConnection.removeEventListener(
+        'icegatheringstatechange',
+        handleStateChange
+      );
+      console.warn('[WebRTC] ICE 候选项收集超时，继续使用当前已收集结果');
+      resolve();
+    }, timeoutMs);
+
+    peerConnection.addEventListener(
+      'icegatheringstatechange',
+      handleStateChange
+    );
+  });
+
 // 启动 WebRTC 连接（带 fallback 到 HLS）
 const startWebRTC = async () => {
   try {
@@ -188,6 +234,7 @@ const startWebRTC = async () => {
       console.log('[WebRTC] ICE 连接状态:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
         console.warn('[WebRTC] ICE 连接失败，可能原因: STUN无法访问、防火墙限制、或 MediaMTX 未就绪');
+        console.warn('[WebRTC] 服务器侧还需要确保 8189/udp 已映射，且返回的是公网可达地址');
       }
     };
 
@@ -218,15 +265,21 @@ const startWebRTC = async () => {
       offerToReceiveAudio: false
     });
     await pc.setLocalDescription(offer);
+    await waitForIceGatheringComplete(pc);
 
     console.log('[WebRTC] Offer 已创建，正在发送到 MediaMTX...');
 
     // 发送 Offer 到 MediaMTX (WHEP 协议)
     const whepUrl =
       BuildMediaHttpUrl(mediamtxWhepPort, '/agv_camera/whep');
+    const localSdp = pc.localDescription?.sdp || '';
     
     console.log('[WebRTC] 连接 WHEP 端点:', whepUrl);
-    console.log('[WebRTC] Offer SDP:', offer.sdp.substring(0, 100) + '...');
+    console.log('[WebRTC] Offer SDP:', localSdp.substring(0, 100) + '...');
+    console.log(
+      '[WebRTC] Offer 是否包含 candidate:',
+      localSdp.includes('a=candidate')
+    );
     
     let response;
     try {
@@ -235,7 +288,7 @@ const startWebRTC = async () => {
         headers: {
           'Content-Type': 'application/sdp'
         },
-        body: offer.sdp
+        body: localSdp
       });
     } catch (fetchError) {
       console.error('[WebRTC] 网络请求失败:', fetchError.message);

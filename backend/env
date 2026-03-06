@@ -1,6 +1,6 @@
 # 后端环境变量（服务器可直接修改此文件）
 HOST=0.0.0.0
-PUBLIC_IP=34.67.204.128
+PUBLIC_IP=34.67.207.224
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 SSE_DEBUG_LOG=./logs/sse_forward.log

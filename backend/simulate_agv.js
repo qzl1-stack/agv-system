@@ -30,7 +30,7 @@ function getServerAddress() {
     
     // 默认使用公网 IP
     return {
-        host: '34.67.204.128',
+        host: '34.67.207.224',
         port: 3000
     };
 }

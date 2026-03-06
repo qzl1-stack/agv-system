@@ -19,6 +19,8 @@ rtspAddress: :8554
 webrtc: yes
 webrtcAddress: :8889
 webrtcAllowOrigin: "*"
+# 允许在 UDP 不通时通过 TCP 建立 ICE 连接。
+webrtcLocalTCPAddress: :8189
 
 # HLS 配置（备选方案，延迟 2-5 秒）
 hls: yes
@@ -34,4 +36,3 @@ paths:
   agv_camera:
     source: publisher
     sourceOnDemand: no
-EOF
