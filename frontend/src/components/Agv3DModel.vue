@@ -174,9 +174,21 @@ const startWebRTC = async () => {
       ]
     });
 
+    // 监听 ICE 候选项（诊断）
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log('[WebRTC] ICE 候选项发现:', event.candidate.candidate);
+      } else {
+        console.log('[WebRTC] ICE 候选项收集完成');
+      }
+    };
+
     // 监听 ICE 连接状态
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC] ICE 连接状态:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+        console.warn('[WebRTC] ICE 连接失败，可能原因: STUN无法访问、防火墙限制、或 MediaMTX 未就绪');
+      }
     };
 
     // 监听连接状态
@@ -184,6 +196,7 @@ const startWebRTC = async () => {
       console.log('[WebRTC] 连接状态:', pc.connectionState);
       if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         console.warn('[WebRTC] 连接失败，尝试降级到 HLS/MJPEG');
+        console.warn('[WebRTC] 连接失败诊断 - ICE状态:', pc.iceConnectionState, ', 信令状态:', pc.signalingState);
         fallbackToHLS();
       }
     };
@@ -212,6 +225,9 @@ const startWebRTC = async () => {
     const whepUrl =
       BuildMediaHttpUrl(mediamtxWhepPort, '/agv_camera/whep');
     
+    console.log('[WebRTC] 连接 WHEP 端点:', whepUrl);
+    console.log('[WebRTC] Offer SDP:', offer.sdp.substring(0, 100) + '...');
+    
     let response;
     try {
       response = await fetch(whepUrl, {
@@ -223,11 +239,16 @@ const startWebRTC = async () => {
       });
     } catch (fetchError) {
       console.error('[WebRTC] 网络请求失败:', fetchError.message);
+      console.error('[WebRTC] WHEP URL:', whepUrl);
+      console.error('[WebRTC] 诊断: 检查 MediaMTX 是否运行、端口 8889 是否开放、CORS 是否配置');
       // 检查是否是 CORS 或网络问题
       throw new Error(`无法连接到 MediaMTX: ${fetchError.message}`);
     }
 
     if (!response.ok) {
+      console.error('[WebRTC] WHEP 握手失败，状态码:', response.status);
+      const errorBody = await response.text();
+      console.error('[WebRTC] 错误响应:', errorBody.substring(0, 200));
       throw new Error(`WebRTC 握手失败: ${response.status} ${response.statusText}`);
     }
 
