@@ -97,6 +97,7 @@
 import { ref, computed, onMounted } from 'vue';
 import Agv3DModel from '../components/Agv3DModel.vue';
 import { parseVcf, generateVcf, createEmptyVcf } from '../utils/xmlHandler';
+import { DEFAULT_AGV_CONFIG } from '../utils/defaultAgvConfig';
 
 const agvData = ref({ raw: null, components: [] });
 const selectedComponentId = ref(null);
@@ -188,8 +189,8 @@ const handleDownload = () => {
 };
 
 onMounted(() => {
-  // Load initial template
-  createNew();
+  // Load default AGV configuration
+  loadXml(DEFAULT_AGV_CONFIG);
 });
 </script>
 
